@@ -5,8 +5,9 @@
 
     <meta charset="UTF-8">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
 
     <title>SOOP Camera</title>
 
@@ -16,42 +17,164 @@
 
 <body>
 
-<div class="phone">
+    <!-- ==========================================================
+         App
+    =========================================================== -->
 
-    <div class="camera-header">
+    <div id="app">
 
-        📷 Camera
+        <!-- ======================================================
+             Phone
+        ======================================================= -->
 
-    </div>
+        <div id="phone">
 
-    <div class="preview">
+            <!-- ==============================================
+                 Camera UI
+            =============================================== -->
 
-        <img
-            id="mainImage"
-            src="assets/photo.jpg"
-            alt="photo">
+            <div id="cameraUi">
 
-        <div class="grid">
+                <!-- Header -->
 
-            <span></span>
-            <span></span>
+                <header id="header">
 
-            <span class="v1"></span>
-            <span class="v2"></span>
+                    <div class="header-left">
+
+                        📷
+
+                    </div>
+
+                    <div class="header-title">
+
+                        Camera
+
+                    </div>
+
+                    <div class="header-right">
+
+                    </div>
+
+                </header>
+
+                <!-- ==========================
+                     Preview
+                =========================== -->
+
+                <main id="preview">
+
+                    <!-- Photo -->
+
+                    <img
+                        id="mainImage"
+                        draggable="false"
+                        alt="Photo">
+
+                    <!-- Flash -->
+
+                    <div id="flash"></div>
+
+                    <!-- Blur Overlay (추후 사용) -->
+
+                    <div id="blurOverlay"></div>
+
+                    <!-- Grid -->
+
+                    <div id="gridOverlay">
+
+                        <div class="v line1"></div>
+                        <div class="v line2"></div>
+
+                        <div class="h line1"></div>
+                        <div class="h line2"></div>
+
+                    </div>
+
+                    <!-- Focus Box -->
+
+                    <div id="focusBox">
+
+                        <div class="corner tl"></div>
+                        <div class="corner tr"></div>
+                        <div class="corner bl"></div>
+                        <div class="corner br"></div>
+
+                    </div>
+
+                </main>
+
+                <!-- ==========================
+                     Bottom
+                =========================== -->
+
+                <footer id="bottomBar">
+
+                    <!-- Thumbnail -->
+
+                    <div id="thumbnail">
+
+                        <div id="thumbImage"></div>
+
+                    </div>
+
+                    <!-- Shutter -->
+
+                    <button
+                        id="shutterBtn"
+                        aria-label="Shutter">
+
+                    </button>
+
+                    <!-- Gallery -->
+
+                    <div id="galleryButton">
+
+                    </div>
+
+                </footer>
+
+            </div>
+
+            <!-- ==============================================
+                 Result Viewer
+            =============================================== -->
+
+            <div id="photoViewer">
+
+                <img
+                    id="resultImage"
+                    draggable="false"
+                    alt="Result">
+
+                <div id="viewerButtons">
+
+                    <button id="saveBtn">
+
+                        저장
+
+                    </button>
+
+                    <button id="retryBtn">
+
+                        다시 촬영
+
+                    </button>
+
+                </div>
+
+            </div>
 
         </div>
 
     </div>
 
-    <div class="bottom">
+    <!-- ======================================================
+         Script
+    ======================================================= -->
 
-        <button id="shutter"></button>
+    <script src="config.js"></script>
 
-    </div>
-
-</div>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 
 </body>
 
