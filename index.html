@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>SOOP-Camera Final v6.3 Captured Photo Switch.5</title>
+
+  <style>
+    :root {
+      --yellow: #ffd60a;
+      --ui-white: rgba(255,255,255,.94);
+      --ui-dim: rgba(255,255,255,.70);
+      --ease-out: cubic-bezier(.16,1,.3,1);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      min-width: 450px;
+      min-height: 800px;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+    }
+
+    .app {
+      --u: 4.5px;
+      --initial-blur: 7px;
+
+      position: relative;
+      width: 450px;
+      height: 800px;
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      box-shadow: none;
+      isolation: isolate;
+    }
+
+
+    .stage {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .photo-frame {
+      position: absolute;
+      left: 50%;
+      top: 45%;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      transform: translate(-50%, -50%);
+      overflow: hidden;
+      background: #050505;
+      z-index: 1;
+      will-change: inset, width, height, top, transform;
+    }
+
+
+    .photo {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      transform: scale3d(1.075, 1.075, 1);
+      filter: blur(var(--initial-blur)) brightness(.91) saturate(.92);
+      opacity: 0;
+      transition: opacity .35s ease;
+      will-change: transform, filter;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    .photo.loaded {
+      opacity: 1;
+      animation: idle-drift 7s ease-in-out infinite;
+    }
+
+    /* 촬영 후에는 위치와 확대율을 그대로 유지하고 선명도만 변경 */
+    .photo.sharp-final {
+      animation: none !important;
+      filter:
+        url("#soop-sharpen")
+        contrast(1.07)
+        saturate(1.04)
+        brightness(1.02) !important;
+      opacity: 1 !important;
+    }
+
+    @keyframes idle-drift {
+      0%, 100% { transform: scale3d(1.075,1.075,1) translate3d(0,0,0); }
+      50% { transform: scale3d(1.105,1.105,1) translate3d(-.7%,.7%,0); }
+    }
+
+
+    .grid {
+      transition: opacity .18s ease, visibility .18s ease;
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background-image:
+        linear-gradient(90deg,
+          transparent 33.15%,
+          rgba(255,255,255,.27) 33.15%,
+          rgba(255,255,255,.27) 33.48%,
+          transparent 33.48%,
+          transparent 66.48%,
+          rgba(255,255,255,.27) 66.48%,
+          rgba(255,255,255,.27) 66.81%,
+          transparent 66.81%),
+        linear-gradient(0deg,
+          transparent 33.15%,
+          rgba(255,255,255,.27) 33.15%,
+          rgba(255,255,255,.27) 33.48%,
+          transparent 33.48%,
+          transparent 66.48%,
+          rgba(255,255,255,.27) 66.48%,
+          rgba(255,255,255,.27) 66.81%,
+          transparent 66.81%);
+      transition: opacity .16s ease;
+    }
+
+    .focus-box {
+      transition: opacity .18s ease, visibility .18s ease;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: calc(var(--u) * 16);
+      height: calc(var(--u) * 16);
+      transform: translate(-50%, -50%);
+      border: max(1px, calc(var(--u) * .42)) solid var(--yellow);
+      border-radius: calc(var(--u) * .9);
+      opacity: .96;
+      z-index: 4;
+      pointer-events: none;
+      animation: focus-pulse 2.4s ease-in-out infinite;
+    }
+
+    .focus-box::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: calc(var(--u) * 1.5);
+      height: calc(var(--u) * 1.5);
+      border-radius: 50%;
+      background: var(--yellow);
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes focus-pulse {
+      0%,100% { transform: translate(-50%,-50%) scale(1); opacity: .96; }
+      50% { transform: translate(-50%,-50%) scale(.94); opacity: .72; }
+    }
+
+    .camera-ui {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      transition: opacity .16s ease, transform .2s ease;
+    }
+
+    .top-bar {
+      position: absolute;
+      top: max(calc(var(--u) * 8.5), env(safe-area-inset-top));
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 calc(var(--u) * 5);
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      width: calc(var(--u) * 8);
+      height: calc(var(--u) * 8);
+      color: white;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .icon-btn.center {
+      width: calc(var(--u) * 7);
+      height: calc(var(--u) * 7);
+      background: rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+    }
+
+    .icon-btn svg {
+      width: 78%;
+      height: 78%;
+    }
+
+    .bottom-area {
+      position: absolute;
+      left: 0;
+      bottom: max(calc(var(--u) * 7.5), env(safe-area-inset-bottom));
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .modes {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: calc(var(--u) * 5.2);
+      margin-bottom: calc(var(--u) * 8.5);
+      padding: 0 calc(var(--u) * 2);
+      white-space: nowrap;
+    }
+
+    .mode-btn {
+      min-width: calc(var(--u) * 5);
+      color: var(--ui-dim);
+      background: transparent;
+      font-size: calc(var(--u) * 3.55);
+      font-weight: 600;
+      letter-spacing: -.03em;
+      cursor: pointer;
+      transition: color .18s ease, transform .15s ease;
+    }
+
+    .mode-btn:active {
+      transform: scale(.9);
+    }
+
+    .mode-btn.active {
+      color: var(--yellow);
+    }
+
+    .gallery-nav {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .22s ease;
+    }
+
+    .gallery-nav.visible {
+      opacity: 1;
+    }
+
+    .gallery-arrow {
+      position: absolute;
+      top: 50%;
+      width: 44px;
+      height: 58px;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: rgba(0,0,0,.28);
+      color: rgba(255,255,255,.92);
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .gallery-arrow.prev { left: 12px; }
+    .gallery-arrow.next { right: 12px; }
+
+    .gallery-arrow:disabled {
+      display: none;
+    }
+
+    .gallery-arrow svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .app.captured .focus-box {
+      display: none !important;
+    }
+
+    .gallery-counter {
+      position: absolute;
+      left: 50%;
+      top: max(18px, env(safe-area-inset-top));
+      transform: translateX(-50%);
+      padding: 6px 11px;
+      border-radius: 999px;
+      color: rgba(255,255,255,.94);
+      background: rgba(0,0,0,.34);
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: .02em;
+      backdrop-filter: blur(10px);
+    }
+
+    .controls {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 calc(var(--u) * 9);
+    }
+
+    .thumbnail {
+      justify-self: start;
+      width: calc(var(--u) * 11.2);
+      height: calc(var(--u) * 11.2);
+      border-radius: calc(var(--u) * 1.4);
+      background-position: center;
+      background-size: cover;
+      border: max(1px, calc(var(--u) * .25)) solid rgba(255,255,255,.45);
+      overflow: hidden;
+    }
+
+    .shutter {
+      position: relative;
+      width: calc(var(--u) * 18);
+      height: calc(var(--u) * 18);
+      border-radius: 50%;
+      background: white;
+      border: calc(var(--u) * .8) solid #000;
+      box-shadow: 0 0 0 calc(var(--u) * 1.05) white;
+      cursor: pointer;
+      transition: transform .09s ease, opacity .2s ease;
+      touch-action: manipulation;
+    }
+
+    .shutter:active {
+      transform: scale(.9);
+    }
+
+    .shutter:disabled {
+      cursor: default;
+      opacity: .65;
+    }
+
+
+    .shutter-slot {
+      position: relative;
+      width: calc(var(--u) * 31);
+      height: calc(var(--u) * 14);
+      flex: 0 0 calc(var(--u) * 31);
+      display: grid;
+      place-items: center;
+    }
+
+    .shutter-slot .shutter,
+    .shutter-slot .capture-actions {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .capture-actions {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-width: calc(var(--u) * 31);
+    }
+
+    .capture-actions.show {
+      display: flex;
+    }
+
+    .capture-action {
+      min-width: calc(var(--u) * 14);
+      height: calc(var(--u) * 10);
+      padding: 0 calc(var(--u) * 3.2);
+      border-radius: calc(var(--u) * 5);
+      color: #fff;
+      font-size: calc(var(--u) * 3.15);
+      font-weight: 700;
+      letter-spacing: -.03em;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: transform .1s ease, opacity .2s ease;
+      white-space: nowrap;
+    }
+
+    .capture-action:active {
+      opacity: .78;
+    }
+
+    .capture-action.save {
+      background: rgba(0,122,255,.9);
+      border: 1px solid rgba(255,255,255,.28);
+    }
+
+    .capture-action.retake {
+      background: rgba(20,20,20,.72);
+      border: 1px solid rgba(255,255,255,.2);
+    }
+
+    .capture-action:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+
+    .shutter.hidden {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .flip {
+      justify-self: end;
+      width: calc(var(--u) * 11.2);
+      height: calc(var(--u) * 11.2);
+      display: grid;
+      place-items: center;
+      color: white;
+      border-radius: 50%;
+      background: rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+    }
+
+    .flip svg {
+      width: 52%;
+      height: 52%;
+    }
+
+
+    .grid.hidden,
+    .focus-box.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .flash {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .flash.active {
+      animation: flash .68s ease-out both;
+    }
+
+    @keyframes flash {
+      0% { opacity: 0; }
+      9% { opacity: 1; }
+      24% { opacity: .92; }
+      100% { opacity: 0; }
+    }
+
+
+    .error {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 28px;
+      color: white;
+      text-align: center;
+      line-height: 1.55;
+      background: #111;
+      z-index: 50;
+    }
+
+    .error.show {
+      display: grid;
+    }
+
+
+    /* 촬영 연출 */
+    .app.capture-freeze .photo {
+      animation-play-state: paused !important;
+    }
+
+    .app.camera-shake {
+      animation: camera-shake .1s ease-out;
+    }
+
+    @keyframes camera-shake {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(-2px, 1px); }
+      50% { transform: translate(2px, -1px); }
+      75% { transform: translate(-1px, -1px); }
+      100% { transform: translate(0, 0); }
+    }
+
+    .photo.auto-exposure {
+      animation: auto-exposure .32s ease-out both !important;
+    }
+
+    @keyframes auto-exposure {
+      0% {
+        filter:
+          url("#soop-sharpen")
+          brightness(.82)
+          contrast(1.02)
+          saturate(.98);
+      }
+      100% {
+        filter:
+          url("#soop-sharpen")
+          brightness(1.02)
+          contrast(1.07)
+          saturate(1.04);
+      }
+    }
+
+    /* 촬영 후 렌즈 질감 */
+    .capture-look {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .2s ease;
+    }
+
+    .capture-look.show {
+      opacity: 1;
+    }
+
+    .capture-look::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at center,
+          transparent 55%,
+          rgba(0,0,0,.08) 82%,
+          rgba(0,0,0,.18) 100%);
+    }
+
+    .capture-look::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: var(--grain-opacity, .045);
+      mix-blend-mode: soft-light;
+      background-image:
+        repeating-radial-gradient(circle at 10% 20%,
+          rgba(255,255,255,.26) 0 1px,
+          transparent 1px 3px);
+      background-size: 4px 4px;
+    }
+
+    /* 방셀 스티커 */
+    .sticker-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .sticker {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(.2) rotate(var(--rot, 0deg));
+      text-shadow:
+        0 2px 6px rgba(0,0,0,.35),
+        0 0 2px rgba(255,255,255,.7);
+      animation: sticker-pop .38s cubic-bezier(.2,1.5,.4,1) forwards;
+      animation-delay: var(--delay, 0ms);
+      user-select: none;
+    }
+
+    .sticker.heart { color: #ff5d87; }
+    .sticker.star { color: #ffd96a; }
+    .sticker.sparkle { color: #fff7c2; }
+    .sticker.ribbon { color: #ff94c8; }
+
+    @keyframes sticker-pop {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(.2) rotate(var(--rot, 0deg));
+      }
+      75% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.15) rotate(var(--rot, 0deg));
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(var(--rot, 0deg));
+      }
+    }
+
+    .capture-meta {
+      position: absolute;
+      left: calc(var(--u) * 3.2);
+      right: calc(var(--u) * 3.2);
+      bottom: calc(var(--u) * 2.3);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      gap: calc(var(--u) * 2);
+      color: rgba(255,255,255,.88);
+      font-size: calc(var(--u) * 2.25);
+      font-weight: 650;
+      text-shadow: 0 2px 7px rgba(0,0,0,.8);
+      opacity: 0;
+      transition: opacity .2s ease;
+      pointer-events: none;
+    }
+
+    .capture-meta.show {
+      opacity: 1;
+    }
+
+    .capture-meta-left,
+    .capture-meta-right {
+      display: grid;
+      gap: calc(var(--u) * .45);
+    }
+
+    .capture-meta-right {
+      text-align: right;
+    }
+
+
+    .save-toast {
+      position: absolute;
+      left: 50%;
+      bottom: calc(var(--u) * 18);
+      z-index: 30;
+      padding: calc(var(--u) * 2.2) calc(var(--u) * 3.4);
+      border-radius: calc(var(--u) * 4);
+      color: #fff;
+      background: rgba(18,18,20,.82);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: 0 8px 25px rgba(0,0,0,.25);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      font-size: calc(var(--u) * 2.8);
+      font-weight: 750;
+      opacity: 0;
+      transform: translate(-50%, 12px);
+      transition: opacity .2s ease, transform .2s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .save-toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .photo.loaded,
+      .focus-box {
+        animation: none;
+      }
+
+    }
+  </style>
+</head>
+
+<body>
+  <!--
+    SOOP-Camera Final v6.3 Captured Photo Switch
+    아래 CONFIG.MODES의 images 배열과 SOUND_URL을 설정하면 됩니다.
+  -->
+  <script>
+    const CONFIG = {
+      /*
+        각 항목의 images 배열에 사진 주소를 차례대로 넣으세요.
+        배열이 비어 있거나 모든 사진을 불러오지 못하면 해당 번호는 화면에서 숨겨집니다.
+
+        예:
+        images: [
+          "assets/images/photo-01.jpg",
+          "https://example.com/photo-02.jpg"
+        ]
+
+        로컬 상대 경로와 외부 URL을 함께 사용할 수 있습니다.
+        현재 기본 연결 주소는 모두 제거되어 있습니다.
+      */
+      MODES: [
+        {
+          id: "photo1",
+          name: "포토1",
+          text: "포토1",
+          images: ["assets/images/photo.jpg"]
+        },
+        {
+          id: "photo2",
+          name: "포토2",
+          text: "포토2",
+          images: ["assets/images/photo.jpg"]
+        },
+        {
+          id: "photo3",
+          name: "포토3",
+          text: "포토3",
+          images: ["assets/images/photo.jpg"]
+        },
+        {
+          id: "photo4",
+          name: "포토4",
+          text: "포토4",
+          images: ["assets/images/photo.jpg"]
+        },
+        {
+          id: "photo5",
+          name: "포토5",
+          text: "포토5",
+          images: ["assets/images/photo.jpg"]
+        }
+      ],
+      DEFAULT_MODE_ID: "photo1",
+      SOUND_URL: "https://t1.daumcdn.net/cfile/tistory/9945893F5FCA7D1B01",
+      SHOW_RETAKE_BUTTON: true,
+      RETAKE_BUTTON_TEXT: "다시 촬영",
+      SHOW_SAVE_BUTTON: true,
+      SAVE_BUTTON_TEXT: "사진 저장",
+      SAVE_FILE_NAME_PREFIX: "SOOP-Camera"
+    };
+  </script>
+
+  <!-- 실제 샤프닝을 위한 SVG 컨볼루션 필터 -->
+  <svg width="0" height="0" aria-hidden="true" focusable="false"
+       style="position:absolute;overflow:hidden">
+    <filter id="soop-sharpen" x="-8%" y="-8%" width="116%" height="116%"
+            color-interpolation-filters="sRGB">
+      <feConvolveMatrix
+        order="3"
+        kernelMatrix="0 -0.45 0 -0.45 2.8 -0.45 0 -0.45 0"
+        divisor="1"
+        bias="0"
+        targetX="1"
+        targetY="1"
+        edgeMode="duplicate"
+        preserveAlpha="true" />
+    </filter>
+  </svg>
+
+  <main class="app" id="app">
+    <div class="stage">
+      <div class="photo-frame" id="photoFrame">
+        <img class="photo" id="mainImage" alt="촬영 이미지" draggable="false" />
+        <div class="grid" id="grid"></div>
+        <div class="focus-box" id="focusBox"></div>
+
+        <div class="capture-look" id="captureLook"></div>
+        <div class="sticker-layer" id="stickerLayer"></div>
+
+        <div class="capture-meta" id="captureMeta">
+          <div class="capture-meta-left">
+            <span id="captureFileName">IMG_0001</span>
+            <span id="captureDateTime">2026.07.20 18:00</span>
+          </div>
+          <div class="capture-meta-right">
+            <span id="captureExif">ISO 125 · 1/60 · f/1.8</span>
+          </div>
+        </div>
+
+        <div class="flash" id="flash"></div>
+      </div>
+
+      <section class="camera-ui" id="cameraUi" aria-label="카메라 화면">
+        <div class="top-bar">
+          <button class="icon-btn" type="button" aria-label="플래시 끔">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M11 6.5 7.8 13H12l-1 4.7 5.1-7.1H12l2.2-4.1Z"/>
+              <path d="m4.6 4.6 14.8 14.8"/>
+            </svg>
+          </button>
+
+          <button class="icon-btn center" type="button" aria-label="상단 메뉴">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path d="m6 15 6-6 6 6"/>
+            </svg>
+          </button>
+
+          <button class="icon-btn" type="button" aria-label="라이브 포토">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45">
+              <circle cx="12" cy="12" r="2.4"/>
+              <circle cx="12" cy="12" r="6" stroke-dasharray="2 2.8"/>
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="bottom-area">
+          <div class="modes" id="modes" aria-label="촬영 모드"></div>
+
+          <div class="controls">
+            <div class="thumbnail" id="thumbnail" aria-hidden="true"></div>
+
+            <div class="shutter-slot" aria-label="촬영 조작 영역">
+              <button class="shutter" id="shutter" type="button"
+                      aria-label="촬영"></button>
+
+              <div class="capture-actions" id="captureActions" aria-label="촬영 결과 메뉴">
+                <button class="capture-action save" id="savePhoto" type="button">↓ 저장</button>
+                <button class="capture-action retake" id="restart" type="button">↺ 재촬영</button>
+              </div>
+            </div>
+
+            <button class="flip" id="flip" type="button" aria-label="카메라 전환">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65">
+                <path d="M19.5 9A8 8 0 0 0 5 6.1"/>
+                <path d="m5 2.8.1 3.4 3.4-.1"/>
+                <path d="M4.5 15A8 8 0 0 0 19 17.9"/>
+                <path d="m19 21.2-.1-3.4-3.4.1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div class="gallery-nav" id="galleryNav" aria-label="사진 넘기기">
+        <button class="gallery-arrow prev" id="prevPhoto" type="button" aria-label="이전 사진">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <path d="m15 5-7 7 7 7"/>
+          </svg>
+        </button>
+        <div class="gallery-counter" id="galleryCounter">1 / 1</div>
+        <button class="gallery-arrow next" id="nextPhoto" type="button" aria-label="다음 사진">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <path d="m9 5 7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="error" id="error">
+        이미지를 불러오지 못했습니다.<br />
+        CONFIG.MODES의 images 배열을 확인해 주세요.
+      </div>
+    </div>
+  </main>
+
+
+  <script>
+    (() => {
+      "use strict";
+
+      const app = document.getElementById("app");
+      const image = document.getElementById("mainImage");
+      const thumbnail = document.getElementById("thumbnail");
+      const shutter = document.getElementById("shutter");
+      const captureActions = document.getElementById("captureActions");
+      const savePhoto = document.getElementById("savePhoto");
+      const restart = document.getElementById("restart");
+      const cameraUi = document.getElementById("cameraUi");
+      const grid = document.getElementById("grid");
+      const focusBox = document.getElementById("focusBox");
+      const flash = document.getElementById("flash");
+      const error = document.getElementById("error");
+      const modesElement = document.getElementById("modes");
+      const galleryNav = document.getElementById("galleryNav");
+      const galleryCounter = document.getElementById("galleryCounter");
+      const prevPhoto = document.getElementById("prevPhoto");
+      const nextPhoto = document.getElementById("nextPhoto");
+      const captureLook = document.getElementById("captureLook");
+      const stickerLayer = document.getElementById("stickerLayer");
+      const captureMeta = document.getElementById("captureMeta");
+      const captureFileName = document.getElementById("captureFileName");
+      const captureDateTime = document.getElementById("captureDateTime");
+      const captureExif = document.getElementById("captureExif");
+      const saveToast = document.getElementById("saveToast");
+
+
+      let captured = false;
+      let shotCounter = 1;
+      try {
+        const savedShotCounter = Number(localStorage.getItem("soopShotCounter"));
+        if (Number.isFinite(savedShotCounter) && savedShotCounter > 0) {
+          shotCounter = savedShotCounter;
+        }
+      } catch (error) {
+        console.info("촬영 번호 저장소를 사용할 수 없어 현재 세션에서만 번호를 유지합니다.");
+      }
+      let currentStickers = [];
+      let currentExif = "";
+
+      let shutterSound = null;
+      let availableModes = [];
+      let currentModeIndex = 0;
+      let currentPhotoIndex = 0;
+      let touchStartX = null;
+
+      restart.textContent = CONFIG.RETAKE_BUTTON_TEXT || "다시 촬영";
+      savePhoto.textContent = CONFIG.SAVE_BUTTON_TEXT || "사진 저장";
+      savePhoto.hidden = CONFIG.SHOW_SAVE_BUTTON === false;
+
+      function normalizeMode(mode, index) {
+        return {
+          id: mode.id || `mode-${index + 1}`,
+          name: mode.name || `모드 ${index + 1}`,
+          text: String(mode.text ?? index + 1),
+          images: Array.isArray(mode.images)
+            ? mode.images.filter(url => typeof url === "string" && url.trim())
+            : []
+        };
+      }
+
+      function checkImage(url) {
+        return new Promise(resolve => {
+          const tester = new Image();
+          tester.onload = () => resolve(true);
+          tester.onerror = () => resolve(false);
+          tester.src = url;
+        });
+      }
+
+      async function findWorkingImages(mode) {
+        const checks = await Promise.all(
+          mode.images.map(async url => ({ url, ok: await checkImage(url) }))
+        );
+        return {
+          ...mode,
+          images: checks.filter(item => item.ok).map(item => item.url)
+        };
+      }
+
+      async function initializeAssets() {
+        const normalized = (CONFIG.MODES || []).map(normalizeMode);
+        const checked = await Promise.all(normalized.map(findWorkingImages));
+        availableModes = checked.filter(mode => mode.images.length > 0);
+
+        if (availableModes.length === 0) {
+          error.innerHTML =
+            "사용 가능한 사진 에셋이 없습니다.<br />" +
+            "CONFIG.MODES의 images 배열을 확인해 주세요.";
+          error.classList.add("show");
+          shutter.disabled = true;
+          return;
+        }
+
+        const defaultIndex = availableModes.findIndex(
+          mode => mode.id === CONFIG.DEFAULT_MODE_ID
+        );
+        currentModeIndex = defaultIndex >= 0 ? defaultIndex : 0;
+        currentPhotoIndex = 0;
+
+        renderModeButtons();
+        showCurrentPhoto({ animate: false });
+        error.classList.remove("show");
+        shutter.disabled = false;
+      }
+
+      function renderModeButtons() {
+        modesElement.replaceChildren();
+
+        availableModes.forEach((mode, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "mode-btn";
+          button.textContent = mode.text;
+          button.title = mode.name;
+          button.setAttribute("aria-label", mode.name);
+          button.dataset.modeIndex = String(index);
+
+          if (index === currentModeIndex) {
+            button.classList.add("active");
+            button.setAttribute("aria-current", "true");
+          }
+
+          button.addEventListener("click", () => {
+            selectMode(index);
+          });
+
+          modesElement.appendChild(button);
+        });
+      }
+
+      function getCurrentMode() {
+        return availableModes[currentModeIndex];
+      }
+
+      function getCurrentUrl() {
+        const mode = getCurrentMode();
+        return mode ? mode.images[currentPhotoIndex] : "";
+      }
+
+      function updateModeSelection() {
+        [...modesElement.children].forEach((button, index) => {
+          const active = index === currentModeIndex;
+          button.classList.toggle("active", active);
+          if (active) {
+            button.setAttribute("aria-current", "true");
+          } else {
+            button.removeAttribute("aria-current");
+          }
+        });
+      }
+
+      function selectMode(index) {
+        if (captured || index === currentModeIndex || !availableModes[index]) return;
+        currentModeIndex = index;
+        currentPhotoIndex = 0;
+        updateModeSelection();
+        showCurrentPhoto({ animate: true });
+      }
+
+      function updateGalleryUi() {
+        const mode = getCurrentMode();
+        const count = mode?.images.length || 0;
+        galleryCounter.textContent = `${currentPhotoIndex + 1} / ${count}`;
+        prevPhoto.disabled = count <= 1;
+        nextPhoto.disabled = count <= 1;
+        galleryNav.classList.toggle("visible", captured && count > 1);
+      }
+
+      function updateCapturedPhotoDetails() {
+        currentExif = makeExifText();
+        captureFileName.textContent = `IMG_${padShotNumber(shotCounter)}`;
+        captureDateTime.textContent = getDateTimeText();
+        captureExif.textContent = currentExif;
+        captureLook.style.setProperty(
+          "--grain-opacity",
+          String(.035 + Math.random() * .03)
+        );
+        createRandomStickers();
+      }
+
+      function playCapturedPhotoTransition() {
+        app.classList.add("capture-freeze", "camera-shake");
+        playShutterSound();
+        replayAnimation(flash, "active");
+
+        window.setTimeout(() => {
+          app.classList.remove("camera-shake");
+          image.classList.remove("loaded", "auto-exposure");
+          image.classList.add("sharp-final", "auto-exposure");
+          updateCapturedPhotoDetails();
+          updateGalleryUi();
+        }, 180);
+
+        window.setTimeout(() => {
+          app.classList.remove("capture-freeze");
+          image.classList.remove("auto-exposure");
+        }, 520);
+      }
+
+      function showCurrentPhoto({ animate = true, captureTransition = false } = {}) {
+        const url = getCurrentUrl();
+        if (!url) return;
+
+        image.classList.remove("loaded", "sharp-final", "auto-exposure");
+        image.style.opacity = "0";
+
+        let applied = false;
+
+        const applyImage = () => {
+          if (applied) return;
+          applied = true;
+
+          thumbnail.style.backgroundImage = `url("${url}")`;
+          image.style.opacity = "";
+
+          if (captured) {
+            image.classList.add("sharp-final");
+          } else {
+            image.classList.add("loaded");
+          }
+
+          updateGalleryUi();
+
+          if (captured && captureTransition) {
+            playCapturedPhotoTransition();
+          }
+        };
+
+        image.onload = applyImage;
+        image.onerror = () => {
+          error.innerHTML =
+            "사진을 불러오지 못했습니다.<br />" +
+            "CONFIG.MODES의 이미지 주소를 확인해 주세요.";
+          error.classList.add("show");
+        };
+
+        if (animate) {
+          image.style.transition = "opacity .2s ease";
+        }
+
+        image.src = url;
+
+        if (image.complete && image.naturalWidth > 0) {
+          applyImage();
+        }
+      }
+
+      function changePhoto(direction) {
+        const mode = getCurrentMode();
+        if (!mode || mode.images.length <= 1) return;
+
+        const count = mode.images.length;
+        currentPhotoIndex = (currentPhotoIndex + direction + count) % count;
+
+        showCurrentPhoto({
+          animate: true,
+          captureTransition: captured
+        });
+      }
+
+      try {
+        shutterSound = new Audio(CONFIG.SOUND_URL);
+        shutterSound.preload = "auto";
+      } catch (_) {
+        shutterSound = null;
+      }
+
+      function playShutterSound() {
+        if (!shutterSound) return;
+        try {
+          shutterSound.currentTime = 0;
+          const playPromise = shutterSound.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {});
+          }
+        } catch (_) {}
+      }
+
+
+      function padShotNumber(value) {
+        return String(value).padStart(4, "0");
+      }
+
+      function getDateTimeText(date = new Date()) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        const hh = String(date.getHours()).padStart(2, "0");
+        const mm = String(date.getMinutes()).padStart(2, "0");
+        return `${y}.${m}.${d} ${hh}:${mm}`;
+      }
+
+      function makeExifText() {
+        const isoValues = [80, 100, 125, 160, 200, 250];
+        const shutterValues = ["1/50", "1/60", "1/80", "1/100"];
+        const iso = isoValues[Math.floor(Math.random() * isoValues.length)];
+        const shutterSpeed = shutterValues[Math.floor(Math.random() * shutterValues.length)];
+        return `ISO ${iso} · ${shutterSpeed} · f/1.8`;
+      }
+
+      function createRandomStickers() {
+        stickerLayer.innerHTML = "";
+        currentStickers = [];
+
+        const stickerTypes = [
+          { char: "♡", className: "heart" },
+          { char: "★", className: "star" },
+          { char: "✦", className: "sparkle" },
+          { char: "🎀", className: "ribbon" }
+        ];
+
+        const count = 3 + Math.floor(Math.random() * 3);
+        const safePositions = [
+          [15, 20], [82, 18], [18, 42], [84, 45],
+          [14, 72], [80, 70], [50, 18], [50, 78]
+        ].sort(() => Math.random() - .5);
+
+        for (let i = 0; i < count; i++) {
+          const item = stickerTypes[Math.floor(Math.random() * stickerTypes.length)];
+          const [x, y] = safePositions[i];
+          const size = 24 + Math.floor(Math.random() * 18);
+          const rotation = -18 + Math.floor(Math.random() * 37);
+
+          currentStickers.push({
+            char: item.char,
+            className: item.className,
+            x, y, size, rotation
+          });
+
+          const sticker = document.createElement("span");
+          sticker.className = `sticker ${item.className}`;
+          sticker.textContent = item.char;
+          sticker.style.left = `${x}%`;
+          sticker.style.top = `${y}%`;
+          sticker.style.fontSize = `${size}px`;
+          sticker.style.setProperty("--rot", `${rotation}deg`);
+          sticker.style.setProperty("--delay", `${i * 55}ms`);
+          stickerLayer.appendChild(sticker);
+        }
+      }
+
+      function showSaveToast() {
+        saveToast.classList.add("show");
+        clearTimeout(showSaveToast.timer);
+        showSaveToast.timer = setTimeout(() => {
+          saveToast.classList.remove("show");
+        }, 1500);
+      }
+
+      function drawCoverImage(ctx, img, width, height) {
+        const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+        const drawWidth = img.naturalWidth * scale;
+        const drawHeight = img.naturalHeight * scale;
+        ctx.drawImage(
+          img,
+          (width - drawWidth) / 2,
+          (height - drawHeight) / 2,
+          drawWidth,
+          drawHeight
+        );
+      }
+
+      async function makeFinalPhotoBlob() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 450;
+        canvas.height = 800;
+        const ctx = canvas.getContext("2d");
+
+        drawCoverImage(ctx, image, canvas.width, canvas.height);
+
+        // 비네팅
+        const vignette = ctx.createRadialGradient(225, 390, 180, 225, 390, 470);
+        vignette.addColorStop(0, "rgba(0,0,0,0)");
+        vignette.addColorStop(.72, "rgba(0,0,0,.03)");
+        vignette.addColorStop(1, "rgba(0,0,0,.18)");
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, 450, 800);
+
+        // 미세 필름 그레인
+        ctx.globalAlpha = .035 + Math.random() * .025;
+        for (let i = 0; i < 2800; i++) {
+          const value = Math.random() > .5 ? 255 : 0;
+          ctx.fillStyle = `rgb(${value},${value},${value})`;
+          ctx.fillRect(Math.random() * 450, Math.random() * 800, 1, 1);
+        }
+        ctx.globalAlpha = 1;
+
+        // 스티커
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(0,0,0,.35)";
+        ctx.shadowBlur = 5;
+
+        const colorMap = {
+          heart: "#ff5d87",
+          star: "#ffd96a",
+          sparkle: "#fff7c2",
+          ribbon: "#ff94c8"
+        };
+
+        for (const sticker of currentStickers) {
+          ctx.save();
+          ctx.translate(sticker.x / 100 * 450, sticker.y / 100 * 800);
+          ctx.rotate(sticker.rotation * Math.PI / 180);
+          ctx.font = `900 ${sticker.size * 1.4}px sans-serif`;
+          ctx.fillStyle = colorMap[sticker.className] || "#fff";
+          ctx.fillText(sticker.char, 0, 0);
+          ctx.restore();
+        }
+
+        // 날짜, 파일 번호, EXIF
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = "rgba(255,255,255,.92)";
+        ctx.font = "700 11px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(captureFileName.textContent, 16, 756);
+        ctx.fillText(captureDateTime.textContent, 16, 775);
+        ctx.textAlign = "right";
+        ctx.fillText(currentExif, 434, 775);
+
+        return await new Promise((resolve, reject) => {
+          canvas.toBlob(
+            blob => blob ? resolve(blob) : reject(new Error("사진 합성 실패")),
+            "image/png",
+            .95
+          );
+        });
+      }
+
+      function replayAnimation(element, className) {
+        element.classList.remove(className);
+        void element.offsetWidth;
+        element.classList.add(className);
+      }
+
+      function capture() {
+        if (captured || !image.complete || image.naturalWidth === 0) return;
+        captured = true;
+        shutter.disabled = true;
+
+        const currentTransform = getComputedStyle(image).transform;
+        image.style.transform = currentTransform === "none" ? "" : currentTransform;
+
+        app.classList.add("capture-freeze", "camera-shake");
+        playShutterSound();
+        replayAnimation(flash, "active");
+
+        updateCapturedPhotoDetails();
+
+        window.setTimeout(() => {
+          app.classList.remove("camera-shake");
+          image.classList.remove("loaded");
+          image.classList.add("sharp-final", "auto-exposure");
+
+          grid.classList.add("hidden");
+          focusBox.classList.add("hidden");
+          captureLook.classList.add("show");
+          captureMeta.classList.add("show");
+
+          shutter.classList.add("hidden");
+          captureActions.classList.add("show");
+          updateGalleryUi();
+        }, 180);
+
+        window.setTimeout(() => {
+          app.classList.remove("capture-freeze");
+          image.classList.remove("auto-exposure");
+        }, 520);
+      }
+
+      function getExtension(url) {
+        try {
+          const pathname = new URL(url, location.href).pathname;
+          const match = pathname.match(/\.([a-zA-Z0-9]{2,5})$/);
+          return match ? match[1].toLowerCase() : "png";
+        } catch (_) {
+          return "png";
+        }
+      }
+
+      function getDownloadFileName(url) {
+        try {
+          const parsedUrl = new URL(url, location.href);
+          const originalName = decodeURIComponent(
+            parsedUrl.pathname.split("/").filter(Boolean).pop() || ""
+          );
+
+          // URL에 정상적인 파일명이 있으면 원본 이름을 그대로 사용합니다.
+          if (originalName && /\.[a-zA-Z0-9]{2,5}$/.test(originalName)) {
+            return originalName;
+          }
+        } catch (_) {
+          // 아래의 대체 파일명을 사용합니다.
+        }
+
+        const mode = getCurrentMode();
+        const prefix = (CONFIG.SAVE_FILE_NAME_PREFIX || "SOOP-Camera").trim();
+        const modeName = mode?.name || "Photo";
+        const number = String(currentPhotoIndex + 1).padStart(2, "0");
+        return `${prefix}-${modeName}-${number}.${getExtension(url)}`;
+      }
+
+      function triggerBlobDownload(blob, fileName) {
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = fileName;
+        anchor.style.display = "none";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+      }
+
+      async function saveCurrentPhoto() {
+        const url = getCurrentUrl();
+        if (!captured || !url || savePhoto.disabled) return;
+
+        savePhoto.disabled = true;
+        const originalText = savePhoto.textContent;
+        savePhoto.textContent = "저장 중...";
+
+        try {
+          /*
+            촬영 화면을 캔버스로 다시 그리지 않고 원본 파일을 직접 받습니다.
+            따라서 원본 해상도, 압축 품질, 파일 형식이 그대로 유지됩니다.
+          */
+          const response = await fetch(url, { cache: "no-store" });
+
+          if (!response.ok) {
+            throw new Error(`원본 이미지 요청 실패: HTTP ${response.status}`);
+          }
+
+          const originalBlob = await response.blob();
+
+          if (!originalBlob.size) {
+            throw new Error("원본 이미지 데이터가 비어 있습니다.");
+          }
+
+          triggerBlobDownload(
+            originalBlob,
+            getDownloadFileName(url)
+          );
+
+          // 다운로드 호출이 끝난 시점부터 저장 성공으로 처리합니다.
+          shotCounter += 1;
+
+          try {
+            localStorage.setItem("soopShotCounter", String(shotCounter));
+          } catch (storageError) {
+            console.info("촬영 번호는 현재 세션에서만 유지됩니다.", storageError);
+          }
+
+          showSaveToast();
+          savePhoto.textContent = "저장 완료";
+        } catch (error) {
+          console.error("원본 이미지 저장 실패:", error);
+          savePhoto.textContent = "저장 실패";
+        } finally {
+          setTimeout(() => {
+            savePhoto.disabled = false;
+            savePhoto.textContent = originalText;
+          }, 1200);
+        }
+      }
+
+      function resetCamera() {
+        captured = false;
+        captureActions.classList.remove("show");
+        galleryNav.classList.remove("visible");
+
+        app.classList.remove("capture-freeze", "camera-shake");
+        image.classList.remove("sharp-final", "auto-exposure");
+        image.style.transform = "";
+
+        grid.classList.remove("hidden");
+        focusBox.classList.remove("hidden");
+        captureLook.classList.remove("show");
+        captureMeta.classList.remove("show");
+        stickerLayer.innerHTML = "";
+        currentStickers = [];
+
+        requestAnimationFrame(() => {
+          image.classList.add("loaded");
+          shutter.classList.remove("hidden");
+          shutter.disabled = false;
+          updateGalleryUi();
+        });
+      }
+
+      shutter.addEventListener("click", capture);
+      savePhoto.addEventListener("click", saveCurrentPhoto);
+      restart.addEventListener("click", resetCamera);
+      prevPhoto.addEventListener("click", () => changePhoto(-1));
+      nextPhoto.addEventListener("click", () => changePhoto(1));
+
+      image.addEventListener("touchstart", event => {
+        if (!captured || event.touches.length !== 1) return;
+        touchStartX = event.touches[0].clientX;
+      }, { passive: true });
+
+      image.addEventListener("touchend", event => {
+        if (!captured || touchStartX === null) return;
+        const endX = event.changedTouches[0]?.clientX ?? touchStartX;
+        const delta = endX - touchStartX;
+        touchStartX = null;
+
+        if (Math.abs(delta) >= 45) {
+          changePhoto(delta < 0 ? 1 : -1);
+        }
+      }, { passive: true });
+
+      window.addEventListener("keydown", event => {
+        if ((event.key === "Enter" || event.key === " ") && !captured) {
+          event.preventDefault();
+          capture();
+        } else if (event.key === "Escape" && captured) {
+          resetCamera();
+        } else if (captured && event.key === "ArrowLeft") {
+          changePhoto(-1);
+        } else if (captured && event.key === "ArrowRight") {
+          changePhoto(1);
+        }
+      });
+
+      flash.addEventListener("animationend", () => {
+        flash.classList.remove("active");
+      });
+
+      initializeAssets();
+    })();
+  </script>
+</body>
+</html>
