@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
-  <title>SOOP-Camera Final v6.3 Captured Photo Switch.5</title>
+  <title>SOOP-Camera Final v6.4 Mode Switch Save Fix</title>
 
   <style>
     :root {
@@ -691,7 +691,7 @@
 
 <body>
   <!--
-    SOOP-Camera Final v6.3 Captured Photo Switch
+    SOOP-Camera Final v6.4 Mode Switch Save Fix
     아래 CONFIG.MODES의 images 배열과 SOUND_URL을 설정하면 됩니다.
   -->
   <script>
@@ -714,31 +714,31 @@
           id: "photo1",
           name: "포토1",
           text: "포토1",
-          images: ["assets/images/photo1.jpg"]
+          images: ["assets/images/photo.jpg"]
         },
         {
           id: "photo2",
           name: "포토2",
           text: "포토2",
-          images: ["assets/images/photo2.jpg"]
+          images: ["assets/images/photo.jpg"]
         },
         {
           id: "photo3",
           name: "포토3",
           text: "포토3",
-          images: ["assets/images/photo3.jpg"]
+          images: ["assets/images/photo.jpg"]
         },
         {
           id: "photo4",
           name: "포토4",
           text: "포토4",
-          images: ["assets/images/photo4.jpg"]
+          images: ["assets/images/photo.jpg"]
         },
         {
           id: "photo5",
           name: "포토5",
           text: "포토5",
-          images: ["assets/images/photo5.jpg"]
+          images: ["assets/images/photo.jpg"]
         }
       ],
       DEFAULT_MODE_ID: "photo1",
@@ -856,6 +856,11 @@
             <path d="m9 5 7 7-7 7"/>
           </svg>
         </button>
+      </div>
+
+
+      <div class="save-toast" id="saveToast" role="status" aria-live="polite">
+        원본 사진을 저장했습니다
       </div>
 
       <div class="error" id="error">
@@ -1022,11 +1027,16 @@
       }
 
       function selectMode(index) {
-        if (captured || index === currentModeIndex || !availableModes[index]) return;
+        if (index === currentModeIndex || !availableModes[index]) return;
+
         currentModeIndex = index;
         currentPhotoIndex = 0;
         updateModeSelection();
-        showCurrentPhoto({ animate: true });
+
+        showCurrentPhoto({
+          animate: true,
+          captureTransition: captured
+        });
       }
 
       function updateGalleryUi() {
@@ -1212,6 +1222,8 @@
       }
 
       function showSaveToast() {
+        if (!saveToast) return;
+
         saveToast.classList.add("show");
         clearTimeout(showSaveToast.timer);
         showSaveToast.timer = setTimeout(() => {
@@ -1392,11 +1404,9 @@
         const originalText = savePhoto.textContent;
         savePhoto.textContent = "저장 중...";
 
+        let downloadStarted = false;
+
         try {
-          /*
-            촬영 화면을 캔버스로 다시 그리지 않고 원본 파일을 직접 받습니다.
-            따라서 원본 해상도, 압축 품질, 파일 형식이 그대로 유지됩니다.
-          */
           const response = await fetch(url, { cache: "no-store" });
 
           if (!response.ok) {
@@ -1414,20 +1424,27 @@
             getDownloadFileName(url)
           );
 
-          // 다운로드 호출이 끝난 시점부터 저장 성공으로 처리합니다.
-          shotCounter += 1;
+          downloadStarted = true;
+          savePhoto.textContent = "저장 완료";
 
+          // 아래 작업들은 저장 성공 여부와 분리합니다.
           try {
+            shotCounter += 1;
             localStorage.setItem("soopShotCounter", String(shotCounter));
           } catch (storageError) {
             console.info("촬영 번호는 현재 세션에서만 유지됩니다.", storageError);
           }
 
-          showSaveToast();
-          savePhoto.textContent = "저장 완료";
+          try {
+            showSaveToast();
+          } catch (toastError) {
+            console.info("저장 안내 표시를 생략합니다.", toastError);
+          }
         } catch (error) {
           console.error("원본 이미지 저장 실패:", error);
-          savePhoto.textContent = "저장 실패";
+
+          // 다운로드가 이미 시작되었다면 실패 문구로 되돌리지 않습니다.
+          savePhoto.textContent = downloadStarted ? "저장 완료" : "저장 실패";
         } finally {
           setTimeout(() => {
             savePhoto.disabled = false;
