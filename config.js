@@ -1,1 +1,0 @@
-const CONFIG={image:'assets/images/photo.jpg',sound:'assets/sounds/shutter.mp3',zoom:1.08};
